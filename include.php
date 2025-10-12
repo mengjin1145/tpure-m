@@ -14,13 +14,37 @@ if (!defined('ZBP_PATH')) {
 
 // 定义主题根目录
 define('TPURE_DIR', dirname(__FILE__) . DIRECTORY_SEPARATOR);
-define('TPURE_VERSION', '5.0.6');
 
-// 加载核心模块
-require TPURE_DIR . 'lib/security.php';      // 安全函数
-require TPURE_DIR . 'lib/helpers.php';       // 辅助函数
-require TPURE_DIR . 'lib/ajax.php';          // Ajax处理
-require TPURE_DIR . 'lib/mail.php';          // 邮件处理
+// 安全加载核心模块（按依赖顺序）
+$core_modules = array(
+    'lib/constants.php',     // 常量定义（最先加载）
+    'lib/error-handler.php', // 错误处理器
+    'lib/security.php',      // 安全函数
+    'lib/cache.php',         // 缓存管理
+    'lib/http-cache.php',    // HTTP缓存（浏览器缓存）
+    'lib/database.php',      // 数据库优化
+    'lib/helpers.php',       // 辅助函数
+    'lib/ajax.php',          // Ajax处理
+    'lib/mail.php',          // 邮件处理
+    'lib/statistics.php',    // 访问统计
+);
+
+foreach ($core_modules as $module) {
+    $module_path = TPURE_DIR . $module;
+    if (file_exists($module_path)) {
+        require_once $module_path;
+    }
+}
+
+// 初始化错误处理器（如果类存在）
+if (class_exists('TpureErrorHandler')) {
+    TpureErrorHandler::init();
+}
+
+// 注册缓存失效钩子（如果函数存在）
+if (function_exists('tpure_register_cache_hooks')) {
+    tpure_register_cache_hooks();
+}
 
 // 加载插件依赖（保持向后兼容）
 require TPURE_DIR . 'plugin' . DIRECTORY_SEPARATOR . 'searchstr.php';
@@ -36,8 +60,25 @@ RegisterPlugin("tpure", "ActivePlugin_tpure");
 function ActivePlugin_tpure() {
     global $zbp;
     
+    // 定义 URL 相关常量（依赖 $zbp 对象）
+    if (!defined('TPURE_THEME_URL')) {
+        define('TPURE_THEME_URL', $zbp->host . 'zb_users/theme/tpure/');
+    }
+    if (!defined('TPURE_STYLE_URL')) {
+        define('TPURE_STYLE_URL', TPURE_THEME_URL . 'style/');
+    }
+    if (!defined('TPURE_SCRIPT_URL')) {
+        define('TPURE_SCRIPT_URL', TPURE_THEME_URL . 'script/');
+    }
+    if (!defined('TPURE_PLUGIN_URL')) {
+        define('TPURE_PLUGIN_URL', TPURE_THEME_URL . 'plugin/');
+    }
+    
     // 加载主题语言包
     $zbp->LoadLanguage('theme', 'tpure');
+    
+    // 初始化HTTP缓存（启用Gzip压缩）
+    TpureHttpCache::enableGzip();
     
     // SEO相关钩子
     if ($zbp->Config('tpure')->SEOON == '1') {
@@ -198,8 +239,3 @@ function tpure_Header() {
          ') no-repeat center center;background-size:cover;}</style>';
     echo '<script>window.theme = {ajaxpost:' . intval($ajaxpost) . '}</script>';
 }
-
-// 加载更多功能模块
-// 由于文件太大，这里只列出关键部分，其他函数保留在原文件中
-// 或者创建对应的模块文件
-require TPURE_DIR . 'lib/functions_legacy.php'; // 遗留功能（从include.php.backup中提取）
