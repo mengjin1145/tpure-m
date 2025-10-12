@@ -10,8 +10,26 @@ ini_set('display_errors', 1);
 echo "<pre>";
 echo "=== 真实环境测试 ===\n\n";
 
+// 智能检测 Z-BlogPHP 根目录
+$currentDir = __DIR__;
+
+echo "当前文件位置: {$currentDir}\n";
+
+// 检查当前文件位置
+if (strpos($currentDir, 'zb_users/theme/tpure') !== false || 
+    strpos($currentDir, 'zb_users\\theme\\tpure') !== false) {
+    // 文件在主题目录
+    $zbpPath = dirname(dirname(dirname($currentDir))) . DIRECTORY_SEPARATOR;
+    echo "检测: 文件在主题目录\n";
+} else {
+    // 文件在网站根目录
+    $zbpPath = $currentDir . DIRECTORY_SEPARATOR;
+    echo "检测: 文件在网站根目录\n";
+}
+
+echo "Z-BlogPHP 根目录: {$zbpPath}\n\n";
+
 // 检查 Z-BlogPHP 是否存在
-$zbpPath = __DIR__ . '/';
 $zbpFile = $zbpPath . 'zb_system/function/c_system_base.php';
 
 if (!file_exists($zbpFile)) {
