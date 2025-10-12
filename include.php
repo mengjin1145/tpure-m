@@ -74,11 +74,15 @@ function ActivePlugin_tpure() {
         define('TPURE_PLUGIN_URL', TPURE_THEME_URL . 'plugin/');
     }
     
-    // 加载主题语言包
-    $zbp->LoadLanguage('theme', 'tpure');
+    // 加载主题语言包（安全调用）
+    if (method_exists($zbp, 'LoadLanguage')) {
+        $zbp->LoadLanguage('theme', 'tpure');
+    }
     
     // 初始化HTTP缓存（启用Gzip压缩）
-    TpureHttpCache::enableGzip();
+    if (class_exists('TpureHttpCache') && method_exists('TpureHttpCache', 'enableGzip')) {
+        TpureHttpCache::enableGzip();
+    }
     
     // SEO相关钩子
     if ($zbp->Config('tpure')->SEOON == '1') {
