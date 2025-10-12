@@ -600,6 +600,11 @@ function tpure_GetArticleListCursor($lastId = 0, $limit = 10, $cateId = 0) {
  * @since 5.0.7
  */
 function tpure_register_cache_hooks() {
+    // 检查 Z-BlogPHP 函数是否可用
+    if (!function_exists('Add_Filter_Plugin')) {
+        return;
+    }
+    
     // 文章发布/更新时清除缓存
     Add_Filter_Plugin('Filter_Plugin_PostArticle_Succeed', 'tpure_invalidate_article_cache');
     
