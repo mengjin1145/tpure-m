@@ -100,7 +100,51 @@ echo "TpureCache 类: " . (class_exists('TpureCache') ? '✓ 存在' : '✗ 不�
 echo "TpureHttpCache 类: " . (class_exists('TpureHttpCache') ? '✓ 存在' : '✗ 不存在') . "\n";
 echo "tpure_register_cache_hooks 函数: " . (function_exists('tpure_register_cache_hooks') ? '✓ 存在' : '✗ 不存在') . "\n";
 
-echo "\n=== 调试完成 ===\n";
-echo "\n如果看到这条消息，说明模块加载没有致命错误。\n";
-echo "请检查 Z-BlogPHP 的错误日志：zb_users/logs/\n";
+echo "\n=== 检查插件依赖文件 ===\n";
+$pluginFiles = array(
+    'plugin/searchstr.php',
+    'plugin/phpmailer/sendmail.php',
+    'plugin/ipLocation/function.php'
+);
+
+foreach ($pluginFiles as $pluginFile) {
+    $path = $themeDir . $pluginFile;
+    echo (file_exists($path) ? '✓' : '✗') . " {$pluginFile}\n";
+}
+
+echo "\n=== 测试关键函数 ===\n";
+
+// 测试安全函数
+try {
+    $testStr = '<script>alert(1)</script>';
+    $escaped = tpure_esc_html($testStr);
+    echo "✓ tpure_esc_html() 可用\n";
+} catch (Throwable $e) {
+    echo "✗ tpure_esc_html() 错误: " . $e->getMessage() . "\n";
+}
+
+echo "\n=== 查找错误日志 ===\n";
+$logDir = $zbpPath . 'zb_users/logs/';
+if (is_dir($logDir)) {
+    $logFiles = glob($logDir . '*.txt');
+    if ($logFiles) {
+        usort($logFiles, function($a, $b) {
+            return filemtime($b) - filemtime($a);
+        });
+        
+        echo "最新日志: " . basename($logFiles[0]) . "\n\n";
+        
+        // 读取最后 30 行
+        $content = file_get_contents($logFiles[0]);
+        $lines = explode("\n", $content);
+        $lastLines = array_slice($lines, -30);
+        
+        echo "=== 最后 30 行 ===\n";
+        echo implode("\n", $lastLines);
+    } else {
+        echo "未找到日志文件\n";
+    }
+}
+
+echo "\n\n=== 调试完成 ===\n";
 
