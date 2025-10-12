@@ -11,10 +11,23 @@ ini_set('log_errors', 1);
 echo "<pre>";
 echo "=== 测试 include.php 加载 ===\n\n";
 
-// 模拟 Z-BlogPHP 环境
-define('ZBP_PATH', __DIR__ . '/');
+// 智能检测 Z-BlogPHP 根目录
+$currentDir = __DIR__;
 
-echo "步骤 1: 定义 ZBP_PATH = " . ZBP_PATH . "\n";
+// 检查当前文件位置
+if (strpos($currentDir, 'zb_users/theme/tpure') !== false || 
+    strpos($currentDir, 'zb_users\\theme\\tpure') !== false) {
+    // 文件在主题目录
+    $zbpPath = dirname(dirname(dirname($currentDir))) . DIRECTORY_SEPARATOR;
+} else {
+    // 文件在网站根目录
+    $zbpPath = $currentDir . DIRECTORY_SEPARATOR;
+}
+
+define('ZBP_PATH', $zbpPath);
+
+echo "步骤 1: 当前文件位置 = {$currentDir}\n";
+echo "步骤 2: 检测 ZBP_PATH = " . ZBP_PATH . "\n";
 
 // 模拟 $zbp 对象（最小化版本）
 class MockZbp {
@@ -57,7 +70,7 @@ class MockCache {
 
 // 创建全局 $zbp 对象
 $zbp = new MockZbp();
-echo "步骤 2: 创建模拟 \$zbp 对象\n";
+echo "步骤 3: 创建模拟 \$zbp 对象\n";
 
 // 模拟必要的 Z-BlogPHP 函数
 if (!function_exists('Add_Filter_Plugin')) {
@@ -69,18 +82,19 @@ if (!function_exists('Add_Filter_Plugin')) {
 
 if (!function_exists('RegisterPlugin')) {
     function RegisterPlugin($name, $function) {
-        echo "步骤 3: 注册主题插件: {$name}\n";
+        echo "步骤 4: 注册主题插件: {$name}\n";
         return true;
     }
 }
 
-echo "步骤 4: 模拟函数已定义\n\n";
+echo "步骤 5: 模拟函数已定义\n\n";
 
 // 测试加载 include.php
 echo "=== 开始加载 include.php ===\n";
 
 try {
-    $includeFile = __DIR__ . '/zb_users/theme/tpure/include.php';
+    // 根据 ZBP_PATH 构建 include.php 路径
+    $includeFile = ZBP_PATH . 'zb_users/theme/tpure/include.php';
     
     if (!file_exists($includeFile)) {
         die("✗ 错误: include.php 不存在\n路径: {$includeFile}\n");
