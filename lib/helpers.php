@@ -281,11 +281,47 @@ function tpure_SubStrUTF8($string, $start, $length) {
  * @param string $str 字符串
  * @return string
  */
-function tpure_CodeToString($str) {
-    $to = array(" ", "  ", "   ", "    ", "\"", "<", ">", "&");
-    $pre = array('&nbsp;', '&nbsp;&nbsp;', '&nbsp;&nbsp;&nbsp;', '&nbsp;&nbsp;&nbsp;&nbsp;', '&quot;', '&lt', '&gt', '&amp');
+if (!function_exists('tpure_CodeToString')) {
+    function tpure_CodeToString($str) {
+        $to = array(" ", "  ", "   ", "    ", "\"", "<", ">", "&");
+        $pre = array('&nbsp;', '&nbsp;&nbsp;', '&nbsp;&nbsp;&nbsp;', '&nbsp;&nbsp;&nbsp;&nbsp;', '&quot;', '&lt', '&gt', '&amp');
+        
+        return str_replace($pre, $to, $str);
+    }
+}
+
+/**
+ * 判断列表模板类型
+ * 
+ * @param string $listtype 列表类型
+ * @return string 模板名称
+ */
+function tpure_JudgeListTemplate($listtype) {
+    global $zbp;
     
-    return str_replace($pre, $to, $str);
+    // 如果没有传入参数，从配置中获取
+    if (empty($listtype)) {
+        $listtype = $zbp->Config('tpure')->PostSEARCHSTYLE;
+    }
+    
+    switch($listtype) {
+        case 1:
+            $template = 'forum';
+            break;
+        case 2:
+            $template = 'album';
+            break;
+        case 3:
+            $template = 'sticker';
+            break;
+        case 4:
+            $template = 'hotspot';
+            break;
+        default:
+            $template = '';
+    }
+    
+    return $template;
 }
 
 // ==================== 数据库查询优化函数 ====================
@@ -630,25 +666,19 @@ function tpure_invalidate_article_cache($article = null) {
         return;
     }
     
-    // 清除热门文章缓存（所有类型）
-    TpureCache::delete('hot_articles_5_view');
-    TpureCache::delete('hot_articles_5_cmt');
-    TpureCache::delete('hot_articles_10_view');
-    TpureCache::delete('hot_articles_10_cmt');
+    // 🔧 临时注释：缓存清除功能暂时禁用
+    // TpureCache::delete('hot_articles_5_view');
+    // TpureCache::delete('hot_articles_5_cmt');
+    // TpureCache::delete('hot_articles_10_view');
+    // TpureCache::delete('hot_articles_10_cmt');
+    // TpureCache::delete('rec_articles');
+    // TpureCache::delete('archive_list');
+    // TpureCache::forgetByTag('article_list');
     
-    // 清除推荐文章缓存
-    TpureCache::delete('rec_articles');
-    
-    // 清除归档缓存
-    TpureCache::delete('archive_list');
-    
-    // 清除按标签关联的缓存
-    TpureCache::forgetByTag('article_list');
-    
-    // 如果有分类ID，清除分类缓存
-    if ($article && isset($article->CateID) && $article->CateID > 0) {
-        TpureCache::forgetByTag('category_' . $article->CateID);
-    }
+    // 🔧 临时注释：缓存清除功能暂时禁用
+    // if ($article && isset($article->CateID) && $article->CateID > 0) {
+    //     TpureCache::forgetByTag('category_' . $article->CateID);
+    // }
     
     // 记录日志
     if (function_exists('tpure_log')) {
@@ -669,17 +699,13 @@ function tpure_invalidate_comment_cache($comment = null) {
         return;
     }
     
-    // 清除最新评论缓存（所有数量）
-    TpureCache::delete('new_comments_5');
-    TpureCache::delete('new_comments_10');
-    TpureCache::delete('new_comments_15');
-    
-    // 清除热门文章缓存（评论数排序）
-    TpureCache::delete('hot_articles_5_cmt');
-    TpureCache::delete('hot_articles_10_cmt');
-    
-    // 清除按标签关联的缓存
-    TpureCache::forgetByTag('comment_list');
+    // 🔧 临时注释：缓存清除功能暂时禁用
+    // TpureCache::delete('new_comments_5');
+    // TpureCache::delete('new_comments_10');
+    // TpureCache::delete('new_comments_15');
+    // TpureCache::delete('hot_articles_5_cmt');
+    // TpureCache::delete('hot_articles_10_cmt');
+    // TpureCache::forgetByTag('comment_list');
     
     // 记录日志
     if (function_exists('tpure_log')) {
@@ -721,5 +747,367 @@ function tpure_get_cache_stats() {
     }
     
     return TpureCache::stats();
+}
+
+// ==================== 调试辅助函数 ====================
+
+/**
+ * 开启错误显示（调试用）
+ * 
+ * 用于开发和调试阶段显示详细的错误信息
+ * 生产环境请务必关闭！
+ * 
+ * @param bool $display 是否显示错误 true=显示 false=隐藏
+ * @param int $level 错误级别 E_ALL=所有错误 E_ERROR=仅严重错误
+ * @return void
+ * @since 5.0.7
+ * 
+ * @example
+ * ```php
+ * // 开启所有错误显示（开发环境）
+ * tpure_enable_error_display(true, E_ALL);
+ * 
+ * // 仅显示严重错误
+ * tpure_enable_error_display(true, E_ERROR);
+ * 
+ * // 关闭错误显示（生产环境）
+ * tpure_enable_error_display(false);
+ * ```
+ */
+function tpure_enable_error_display($display = true, $level = E_ALL) {
+    if ($display) {
+        // 开启错误报告
+        error_reporting($level);
+        ini_set('display_errors', '1');
+        ini_set('display_startup_errors', '1');
+        
+        // 记录日志
+        if (function_exists('tpure_log')) {
+            tpure_log('错误显示已开启（调试模式）', 'WARNING');
+        }
+    } else {
+        // 关闭错误显示
+        error_reporting(0);
+        ini_set('display_errors', '0');
+        ini_set('display_startup_errors', '0');
+        
+        // 记录日志
+        if (function_exists('tpure_log')) {
+            tpure_log('错误显示已关闭（生产模式）', 'INFO');
+        }
+    }
+}
+
+/**
+ * 调试输出变量内容
+ * 
+ * 格式化输出变量，方便调试
+ * 
+ * @param mixed $var 要输出的变量
+ * @param string $label 标签（可选）
+ * @param bool $return 是否返回字符串而不直接输出
+ * @return string|void
+ * @since 5.0.7
+ * 
+ * @example
+ * ```php
+ * $data = array('name' => 'test', 'value' => 123);
+ * tpure_debug($data, '数据内容');
+ * ```
+ */
+function tpure_debug($var, $label = '', $return = false) {
+    $output = '';
+    
+    // 添加标签
+    if (!empty($label)) {
+        $output .= "<h3 style='color:#2196f3;margin:10px 0;'>DEBUG: {$label}</h3>";
+    }
+    
+    // 格式化输出
+    $output .= '<pre style="background:#f5f5f5;padding:15px;border:1px solid #ddd;border-radius:4px;margin:10px 0;overflow:auto;">';
+    $output .= htmlspecialchars(print_r($var, true));
+    $output .= '</pre>';
+    
+    if ($return) {
+        return $output;
+    } else {
+        echo $output;
+    }
+}
+
+/**
+ * 记录调试信息到浏览器控制台
+ * 
+ * @param mixed $data 要记录的数据
+ * @param string $type 类型 log|info|warn|error
+ * @return void
+ * @since 5.0.7
+ * 
+ * @example
+ * ```php
+ * tpure_console_log('这是一条日志');
+ * tpure_console_log('警告信息', 'warn');
+ * tpure_console_log(['data' => 'value'], 'info');
+ * ```
+ */
+function tpure_console_log($data, $type = 'log') {
+    $validTypes = array('log', 'info', 'warn', 'error');
+    if (!in_array($type, $validTypes)) {
+        $type = 'log';
+    }
+    
+    // 转换为JSON
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+    
+    // 输出到浏览器控制台
+    echo "<script>console.{$type}(" . $json . ");</script>";
+}
+
+/**
+ * 检查调试模式是否开启
+ * 
+ * @return bool
+ * @since 5.0.7
+ */
+function tpure_is_debug_mode() {
+    global $zbp;
+    
+    // 检查 Z-BlogPHP 调试模式
+    if (isset($zbp->option['ZC_DEBUG_MODE']) && $zbp->option['ZC_DEBUG_MODE']) {
+        return true;
+    }
+    
+    // 检查主题配置
+    try {
+        $config = $zbp->Config('tpure');
+        if (isset($config->PostDEBUGMODE) && $config->PostDEBUGMODE == '1') {
+            return true;
+        }
+    } catch (Exception $e) {
+        // 配置不存在
+    }
+    
+    // 检查 PHP 错误显示设置
+    if (ini_get('display_errors') == '1') {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * 性能计时器（开始）
+ * 
+ * @param string $name 计时器名称
+ * @return void
+ * @since 5.0.7
+ * 
+ * @example
+ * ```php
+ * tpure_timer_start('database_query');
+ * // ... 执行查询 ...
+ * $time = tpure_timer_end('database_query');
+ * echo "查询耗时: {$time}ms";
+ * ```
+ */
+function tpure_timer_start($name = 'default') {
+    global $tpure_timers;
+    
+    if (!isset($tpure_timers)) {
+        $tpure_timers = array();
+    }
+    
+    $tpure_timers[$name] = microtime(true);
+}
+
+/**
+ * 性能计时器（结束）
+ * 
+ * @param string $name 计时器名称
+ * @param bool $format 是否格式化输出
+ * @return float|string 耗时（毫秒）
+ * @since 5.0.7
+ */
+function tpure_timer_end($name = 'default', $format = false) {
+    global $tpure_timers;
+    
+    if (!isset($tpure_timers[$name])) {
+        return 0;
+    }
+    
+    $elapsed = (microtime(true) - $tpure_timers[$name]) * 1000; // 转换为毫秒
+    
+    // 清除计时器
+    unset($tpure_timers[$name]);
+    
+    if ($format) {
+        return number_format($elapsed, 2) . ' ms';
+    }
+    
+    return $elapsed;
+}
+
+/**
+ * 内存使用监控
+ * 
+ * @param bool $peak 是否返回峰值内存
+ * @param bool $format 是否格式化输出
+ * @return int|string 内存使用量（字节或格式化字符串）
+ * @since 5.0.7
+ * 
+ * @example
+ * ```php
+ * echo '当前内存: ' . tpure_memory_usage(false, true);
+ * echo '峰值内存: ' . tpure_memory_usage(true, true);
+ * ```
+ */
+function tpure_memory_usage($peak = false, $format = false) {
+    $bytes = $peak ? memory_get_peak_usage(true) : memory_get_usage(true);
+    
+    if ($format) {
+        $units = array('B', 'KB', 'MB', 'GB', 'TB');
+        $power = $bytes > 0 ? floor(log($bytes, 1024)) : 0;
+        
+        return number_format($bytes / pow(1024, $power), 2) . ' ' . $units[$power];
+    }
+    
+    return $bytes;
+}
+
+/**
+ * SQL 查询日志记录
+ * 
+ * @param string $sql SQL语句
+ * @param float $time 执行时间（毫秒）
+ * @return void
+ * @since 5.0.7
+ */
+function tpure_log_sql($sql, $time = 0) {
+    global $tpure_sql_queries;
+    
+    if (!isset($tpure_sql_queries)) {
+        $tpure_sql_queries = array();
+    }
+    
+    $tpure_sql_queries[] = array(
+        'sql' => $sql,
+        'time' => $time,
+        'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
+    );
+    
+    // 记录到日志文件
+    if (function_exists('tpure_log')) {
+        $logMsg = sprintf('SQL[%.2fms]: %s', $time, $sql);
+        tpure_log($logMsg, 'DEBUG');
+    }
+}
+
+/**
+ * 获取所有 SQL 查询记录
+ * 
+ * @return array
+ * @since 5.0.7
+ */
+function tpure_get_sql_queries() {
+    global $tpure_sql_queries;
+    
+    return isset($tpure_sql_queries) ? $tpure_sql_queries : array();
+}
+
+/**
+ * 输出调试信息面板
+ * 
+ * 在页面底部显示性能和调试信息
+ * 
+ * @return void
+ * @since 5.0.7
+ */
+function tpure_debug_panel() {
+    // 仅在调试模式下显示
+    if (!tpure_is_debug_mode()) {
+        return;
+    }
+    
+    $memory = tpure_memory_usage(false, true);
+    $memoryPeak = tpure_memory_usage(true, true);
+    $sqlQueries = tpure_get_sql_queries();
+    $sqlCount = count($sqlQueries);
+    $sqlTime = 0;
+    
+    foreach ($sqlQueries as $query) {
+        $sqlTime += $query['time'];
+    }
+    
+    ?>
+    <div id="tpure-debug-panel" style="position:fixed;bottom:0;left:0;right:0;background:#2d2d2d;color:#f8f8f2;padding:10px 20px;font-family:monospace;font-size:12px;z-index:9999;border-top:3px solid #2196f3;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;gap:20px;">
+                <span>⏱️ 查询数: <strong style="color:#2196f3;"><?php echo $sqlCount; ?></strong></span>
+                <span>⚡ SQL耗时: <strong style="color:#4caf50;"><?php echo number_format($sqlTime, 2); ?> ms</strong></span>
+                <span>💾 内存: <strong style="color:#ff9800;"><?php echo $memory; ?></strong></span>
+                <span>📊 峰值: <strong style="color:#f44336;"><?php echo $memoryPeak; ?></strong></span>
+            </div>
+            <button onclick="document.getElementById('tpure-debug-panel').style.display='none'" style="background:#f44336;color:#fff;border:none;padding:5px 15px;border-radius:3px;cursor:pointer;">关闭</button>
+        </div>
+    </div>
+    <?php
+}
+
+/**
+ * 安全的 var_dump（带样式）
+ * 
+ * @param mixed $var 要输出的变量
+ * @param bool $exit 是否立即退出
+ * @return void
+ * @since 5.0.7
+ */
+function tpure_dump($var, $exit = false) {
+    echo '<pre style="background:#2d2d2d;color:#f8f8f2;padding:20px;border-radius:4px;margin:20px;overflow:auto;font-family:Consolas,monospace;line-height:1.5;">';
+    var_dump($var);
+    echo '</pre>';
+    
+    if ($exit) {
+        die();
+    }
+}
+
+/**
+ * 生成响应式图片标签（支持 WebP/AVIF）
+ * 
+ * 🔧 临时禁用：回退到普通 img 标签，避免兼容性问题
+ * 
+ * @param object $article 文章对象
+ * @param array $options 配置选项
+ * @return string 完整的 <img> HTML 标签
+ * @since 5.12
+ */
+function tpure_responsive_image($article, $options = array()) {
+    // 🔧 临时方案：直接返回普通 img 标签
+    $thumbSrc = tpure_Thumb($article);
+    
+    if (empty($thumbSrc)) {
+        return '';
+    }
+    
+    return '<img src="' . tpure_esc_url($thumbSrc) . '" alt="' . tpure_esc_attr($article->Title) . '">';
+}
+
+/**
+ * 快捷函数：输出响应式缩略图
+ * 
+ * 🔧 临时禁用：回退到普通 img 标签
+ * 
+ * @param object $article 文章对象
+ * @param int $width 宽度（可选）
+ * @param int $height 高度（可选）
+ * @return void
+ * @since 5.12
+ */
+function tpure_show_responsive_thumb($article, $width = 400, $height = 300) {
+    // 🔧 临时方案：直接输出普通 img 标签
+    $thumbSrc = tpure_Thumb($article);
+    if (!empty($thumbSrc)) {
+        echo '<img src="' . tpure_esc_url($thumbSrc) . '" alt="' . tpure_esc_attr($article->Title) . '">';
+    }
 }
 

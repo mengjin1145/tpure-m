@@ -49,8 +49,26 @@ if(ZC_VERSION_COMMIT >= 2800){
 	  $w['cate'] = $article->Category->ID;
 	}
 	$array = GetList($w);
+	
+	// 🆕 预加载关联数据，解决N+1查询问题（仅在类存在且方法可调用时执行）
+	if (class_exists('TpureDatabase') && method_exists('TpureDatabase', 'preloadArticleRelations') && count($array) > 0) {
+		try {
+			TpureDatabase::preloadArticleRelations($array);
+		} catch (Exception $e) {
+			// 静默失败，不影响页面显示
+		}
+	}
 }else{
 	$array = $zbp->GetArticleList(array('*'),$where,$order,array($relatenum),'');
+	
+	// 🆕 预加载关联数据，解决N+1查询问题（仅在类存在且方法可调用时执行）
+	if (class_exists('TpureDatabase') && method_exists('TpureDatabase', 'preloadArticleRelations') && count($array) > 0) {
+		try {
+			TpureDatabase::preloadArticleRelations($array);
+		} catch (Exception $e) {
+			// 静默失败，不影响页面显示
+		}
+	}
 }
 {/php}
 {if count($array)>0}

@@ -143,9 +143,9 @@ function tpure_validate_email($email) {
  */
 function tpure_validate_upload($file, $options = array()) {
     $defaults = array(
-        'allowed_types' => array('image/jpeg', 'image/png', 'image/gif', 'image/webp'),
+        'allowed_types' => array('image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'),
         'max_size' => 5 * 1024 * 1024, // 5MB
-        'allowed_extensions' => array('jpg', 'jpeg', 'png', 'gif', 'webp')
+        'allowed_extensions' => array('jpg', 'jpeg', 'png', 'gif', 'webp', 'avif')
     );
     
     $options = array_merge($defaults, $options);

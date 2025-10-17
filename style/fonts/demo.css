@@ -6,6 +6,7 @@
     url('https://at.alicdn.com/t/font_985780_km7mi63cihi.woff?t=1545807318834') format('woff'),
     url('https://at.alicdn.com/t/font_985780_km7mi63cihi.ttf?t=1545807318834') format('truetype'),
     url('https://at.alicdn.com/t/font_985780_km7mi63cihi.svg?t=1545807318834#iconfont') format('svg');
+  font-display: swap; /* 🚀 优化：立即显示文本，避免 FOIT */
 }
 
 .logo {
@@ -73,7 +74,6 @@
   height: 110px;
   margin-top: -50px;
   overflow: hidden;
-  *zoom: 1;
 }
 
 .main .logo a {
@@ -96,7 +96,6 @@
 .icon_lists {
   width: 100% !important;
   overflow: hidden;
-  *zoom: 1;
 }
 
 .icon_lists li {

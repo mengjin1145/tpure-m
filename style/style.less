@@ -52,6 +52,7 @@ input,textarea { font-size:16px; font-family:"PingFang SC", -apple-system, Blink
        url('fonts/iconfont.ttf') format('truetype');
     font-weight:normal;
     font-style:normal;
+    font-display: swap; /* 🚀 优化：立即显示文本，避免 FOIT */
 }
 .shadow { box-shadow:0 1px 2px rgba(0,0,0,.08); }
 .hide { display:none !important; }
@@ -1246,7 +1247,7 @@ a.setnight { width:45px; height:45px; text-align:center; line-height:45px; borde
     .head {
         &er { border-bottom:1px solid #222; box-shadow:0 1px 4px 0 rgba(22,22,22,1); background-color:rgba(32,32,32,1); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
             .name {
-                a, { color:#ccc; }
+                a { color:#ccc; }
             }
         }
     }
