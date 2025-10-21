@@ -769,6 +769,27 @@ if ($act == 'base') {
 			<i class="help"></i><span class="helpcon">“ON”为移动端显示友情链接；<br>“OFF”为移动端不显示友情链接。</span>
 		</dd>
         </div>
+		<dt>🚀 缓存性能优化 <span>（需要Redis扩展支持，提升网站访问速度）</span></dt>
+		<dd class="half">
+			<label>全页面缓存</label>
+			<input type="text" name="CacheFullPageOn" class="checkbox" value="<?php echo $zbp->Config('tpure')->CacheFullPageOn ?? 'OFF'; ?>">
+			<i class="help"></i><span class="helpcon">"ON"为开启Redis全页面缓存（需Redis扩展）；<br>"OFF"为关闭全页面缓存。<br>⚠️ 需要安装Redis扩展才能使用。</span>
+		</dd>
+		<dd class="half">
+			<label>热门内容缓存</label>
+			<input type="text" name="CacheHotContentOn" class="checkbox" value="<?php echo $zbp->Config('tpure')->CacheHotContentOn ?? 'OFF'; ?>">
+			<i class="help"></i><span class="helpcon">"ON"为开启热门文章/分类/标签缓存（需Redis扩展）；<br>"OFF"为关闭热门内容缓存。</span>
+		</dd>
+		<dd class="half">
+			<label>浏览器缓存（HTTP）</label>
+			<input type="text" name="CacheBrowserOn" class="checkbox" value="<?php echo $zbp->Config('tpure')->CacheBrowserOn ?? 'OFF'; ?>">
+			<i class="help"></i><span class="helpcon">"ON"为开启HTTP浏览器缓存头优化；<br>"OFF"为关闭浏览器缓存优化。<br>✅ 无需Redis扩展。</span>
+		</dd>
+		<dd class="half">
+			<label>模板编译缓存</label>
+			<input type="text" name="CacheTemplateOn" class="checkbox" value="<?php echo $zbp->Config('tpure')->CacheTemplateOn ?? 'ON'; ?>">
+			<i class="help"></i><span class="helpcon">"ON"为开启Z-BlogPHP原生模板缓存；<br>"OFF"为关闭模板缓存。<br>✅ 无需Redis扩展，建议保持开启。</span>
+		</dd>
 		<dt>网站无权限时自动跳转至以下地址</dt>
 		<dd>
 			<label for="PostERRORTOPAGE">跳转网址</label>
@@ -1846,19 +1867,19 @@ if ($act == 'config') {
     // 🆕 初始化缓存配置默认值（首次加载时）
     $needSave = false;
     if (!isset($zbp->Config('tpure')->CacheFullPageOn)) {
-        $zbp->Config('tpure')->CacheFullPageOn = 'OFF';
+        $zbp->Config('tpure')->CacheFullPageOn = 'ON';  // ✅ 默认开启（需Redis）
         $needSave = true;
     }
     if (!isset($zbp->Config('tpure')->CacheHotContentOn)) {
-        $zbp->Config('tpure')->CacheHotContentOn = 'OFF';
+        $zbp->Config('tpure')->CacheHotContentOn = 'ON'; // ✅ 默认开启（需Redis）
         $needSave = true;
     }
     if (!isset($zbp->Config('tpure')->CacheBrowserOn)) {
-        $zbp->Config('tpure')->CacheBrowserOn = 'OFF';
+        $zbp->Config('tpure')->CacheBrowserOn = 'ON';    // ✅ 默认开启（无需Redis）
         $needSave = true;
     }
     if (!isset($zbp->Config('tpure')->CacheTemplateOn)) {
-        $zbp->Config('tpure')->CacheTemplateOn = 'ON'; // 模板缓存默认开启
+        $zbp->Config('tpure')->CacheTemplateOn = 'ON';   // ✅ 默认开启（无需Redis）
         $needSave = true;
     }
     // 统一保存所有初始化的配置
@@ -1866,16 +1887,31 @@ if ($act == 'config') {
         $zbp->SaveConfig('tpure');
     }
     
-    if (isset($_POST['PostAJAXPOSTON'])) {
+    // 🔧 修复：改为检查任一缓存配置字段，避免保存失败
+    if (isset($_POST['PostAJAXPOSTON']) || isset($_POST['CacheFullPageOn']) || isset($_POST['CacheHotContentOn']) || isset($_POST['CacheBrowserOn']) || isset($_POST['CacheTemplateOn']) || isset($_POST['PostSAVECONFIG'])) {
         CheckIsRefererValid();
-        $zbp->Config('tpure')->PostAJAXPOSTON = $_POST['PostAJAXPOSTON'];
-        $zbp->Config('tpure')->PostSAVECONFIG = $_POST['PostSAVECONFIG'];           //保留配置开关
         
-        // 🆕 缓存开关配置
-        $zbp->Config('tpure')->CacheFullPageOn = isset($_POST['CacheFullPageOn']) ? $_POST['CacheFullPageOn'] : 'OFF';      // Redis 全页面缓存
-        $zbp->Config('tpure')->CacheHotContentOn = isset($_POST['CacheHotContentOn']) ? $_POST['CacheHotContentOn'] : 'OFF'; // 热门内容 HTML 缓存
-        $zbp->Config('tpure')->CacheBrowserOn = isset($_POST['CacheBrowserOn']) ? $_POST['CacheBrowserOn'] : 'OFF';         // 浏览器缓存（HTTP）
-        $zbp->Config('tpure')->CacheTemplateOn = isset($_POST['CacheTemplateOn']) ? $_POST['CacheTemplateOn'] : 'ON';       // Z-BlogPHP 原生模板缓存
+        // 常规配置（如果存在）
+        if (isset($_POST['PostAJAXPOSTON'])) {
+            $zbp->Config('tpure')->PostAJAXPOSTON = $_POST['PostAJAXPOSTON'];
+        }
+        if (isset($_POST['PostSAVECONFIG'])) {
+            $zbp->Config('tpure')->PostSAVECONFIG = $_POST['PostSAVECONFIG'];           //保留配置开关
+        }
+        
+        // 🆕 缓存开关配置（独立保存，不依赖其他字段）
+        if (isset($_POST['CacheFullPageOn'])) {
+            $zbp->Config('tpure')->CacheFullPageOn = $_POST['CacheFullPageOn'];      // Redis 全页面缓存
+        }
+        if (isset($_POST['CacheHotContentOn'])) {
+            $zbp->Config('tpure')->CacheHotContentOn = $_POST['CacheHotContentOn']; // 热门内容 HTML 缓存
+        }
+        if (isset($_POST['CacheBrowserOn'])) {
+            $zbp->Config('tpure')->CacheBrowserOn = $_POST['CacheBrowserOn'];         // 浏览器缓存（HTTP）
+        }
+        if (isset($_POST['CacheTemplateOn'])) {
+            $zbp->Config('tpure')->CacheTemplateOn = $_POST['CacheTemplateOn'];       // Z-BlogPHP 原生模板缓存
+        }
         
         $zbp->SaveConfig('tpure');
         $zbp->BuildTemplate();

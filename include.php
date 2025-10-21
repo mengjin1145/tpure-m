@@ -160,8 +160,9 @@ if (!defined('ZBP_IN_ADMIN') && !isset($_COOKIE['username']) && $_SERVER['REQUES
 
 // ==================== 🆕 调试模式：按需加载调试处理器 ====================
 // 🚀 优化：调试代码独立文件，生产环境零开销（减少60行，3KB）
+// 🔧 调试模式开关（开发/测试环境建议开启，生产环境关闭）
 if (!defined('TPURE_DEBUG')) {
-    define('TPURE_DEBUG', false);  // 生产环境：false，开发环境：true
+    define('TPURE_DEBUG', true);  // ✅ 已开启调试模式 - 2025-01-20
 }
 
 // 🚀 优化：仅调试模式加载错误处理器（生产环境不加载）
@@ -469,6 +470,18 @@ function ActivePlugin_tpure() {
             'Filter_Plugin_Logout_Succeed',       // 🆕 退出登录时清除缓存
         ) as $hook) {
             Add_Filter_Plugin($hook, 'tpure_clear_fullpage_cache');
+        }
+    }
+    
+    // 🆕 全页面缓存写入钩子（页面渲染时自动缓存HTML）
+    if (function_exists('tpure_fullpage_cache_handler')) {
+        foreach (array(
+            'Filter_Plugin_ViewIndex_Template',   // 首页
+            'Filter_Plugin_ViewList_Template',    // 列表页
+            'Filter_Plugin_ViewPost_Template',    // 文章页
+            'Filter_Plugin_ViewPage_Template',    // 独立页面
+        ) as $hook) {
+            Add_Filter_Plugin($hook, 'tpure_fullpage_cache_handler');
         }
     }
     

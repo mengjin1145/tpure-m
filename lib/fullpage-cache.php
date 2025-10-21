@@ -112,6 +112,121 @@ function tpure_clear_page_cache($url) {
 }
 
 /**
+ * 🆕 全页面缓存写入函数
+ * 
+ * 在页面渲染完成后，将HTML内容写入Redis缓存
+ * 
+ * @param string $template 模板对象
+ * @return string 返回处理后的模板
+ */
+function tpure_fullpage_cache_handler(&$template) {
+    global $zbp;
+    
+    // 检查是否启用全页面缓存
+    if (($zbp->Config('tpure')->CacheFullPageOn ?? 'OFF') !== 'ON') {
+        return $template;
+    }
+    
+    // 检查Redis扩展
+    if (!extension_loaded('redis')) {
+        return $template;
+    }
+    
+    // 只对游客启用缓存（登录用户不缓存）
+    if ($zbp->user && $zbp->user->ID > 0) {
+        return $template;
+    }
+    
+    // 只缓存GET请求
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        return $template;
+    }
+    
+    // 获取当前请求URI
+    $requestUri = $_SERVER['REQUEST_URI'];
+    
+    // 排除特定页面（管理后台、API等）
+    $excludePatterns = array('/zb_system/', '/zb_users/plugin/', '?', '&');
+    foreach ($excludePatterns as $pattern) {
+        if (strpos($requestUri, $pattern) !== false) {
+            return $template;
+        }
+    }
+    
+    try {
+        // 连接Redis
+        $redis = new Redis();
+        $redis->connect('127.0.0.1', 6379, 2);
+        
+        // 认证
+        $password = '';
+        $configCacheFile = $zbp->usersdir . 'cache/config_zbpcache.php';
+        if (file_exists($configCacheFile)) {
+            $configData = @include $configCacheFile;
+            if (is_array($configData) && isset($configData['redis_password'])) {
+                $password = $configData['redis_password'];
+            }
+        }
+        
+        if ($password) {
+            $redis->auth($password);
+        }
+        
+        // 构建缓存键
+        $cacheKey = 'tpure:fullpage:' . md5($requestUri);
+        
+        // 首先尝试读取缓存
+        $cachedContent = $redis->get($cacheKey);
+        
+        if ($cachedContent !== false) {
+            // 缓存命中，添加响应头并返回
+            header('X-Cache: HIT');
+            header('X-Cache-Key: ' . $cacheKey);
+            echo $cachedContent;
+            exit; // 直接输出缓存，停止后续渲染
+        }
+        
+        // 缓存未命中，继续正常渲染
+        header('X-Cache: MISS');
+        header('X-Cache-Key: ' . $cacheKey);
+        
+        // 注册输出缓冲区处理函数，在页面输出前写入缓存
+        ob_start(function($content) use ($redis, $cacheKey, $requestUri) {
+            // 只缓存成功的HTML响应
+            if (strpos($content, '<!DOCTYPE') !== false || strpos($content, '<html') !== false) {
+                // 判断缓存时间
+                $ttl = 3600; // 默认1小时
+                
+                // 首页缓存时间更短（5分钟）
+                if ($requestUri === '/' || $requestUri === '/index.php') {
+                    $ttl = 300;
+                }
+                
+                // 写入缓存
+                $redis->setex($cacheKey, $ttl, $content);
+                
+                // 调试日志
+                if (defined('TPURE_DEBUG') && TPURE_DEBUG && function_exists('tpure_log')) {
+                    tpure_log("全页面缓存已写入：{$cacheKey}（过期：{$ttl}秒）", 'INFO');
+                }
+            }
+            
+            return $content;
+        });
+        
+        $redis->close();
+        
+    } catch (Exception $e) {
+        // Redis错误，静默失败，继续正常渲染
+        if (defined('TPURE_DEBUG') && TPURE_DEBUG && function_exists('tpure_log')) {
+            tpure_log("全页面缓存写入失败：" . $e->getMessage(), 'ERROR');
+        }
+    }
+    
+    return $template;
+}
+
+/**
  * 获取全页面缓存统计信息
  * 
  * @return array ['total' => 总数, 'size' => 总大小（字节）]
