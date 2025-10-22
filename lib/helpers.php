@@ -1088,7 +1088,7 @@ function tpure_responsive_image($article, $options = array()) {
         'height' => 300,
         'lazy' => true,
         'class' => 'thumbnail-img',
-        'check_exists' => false  // 是否检查文件存在（会影响性能）
+        'check_exists' => true  // ✅ 默认检查文件存在，避免404错误
     );
     
     $options = array_merge($defaults, $options);
