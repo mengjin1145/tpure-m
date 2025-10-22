@@ -566,11 +566,61 @@ if ($pluginExists) {
                     </ul>
                 </div>
                 
-                <!-- 实际检测演示 -->
+                <!-- Canvas/WebGL 指纹检测演示 -->
                 <div class="section">
-                    <h2>🎯 当前设备指纹信息（演示）</h2>
+                    <h2>🎨 Canvas/WebGL 指纹实时检测</h2>
                     <p style="margin-bottom: 15px; color: #666;">
-                        以下是您的浏览器当前的设备信息（仅本地显示，不会上传）：
+                        下面演示 Canvas 和 WebGL 指纹是如何生成的（仅本地显示，不会上传）：
+                    </p>
+                    
+                    <!-- Canvas 指纹 -->
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h3 style="color: #667eea; margin-bottom: 10px;">🖼️ Canvas 指纹</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <p style="font-weight: bold; margin-bottom: 5px;">渲染的图像：</p>
+                                <canvas id="canvas-fingerprint" width="300" height="60" style="border: 1px solid #ddd; border-radius: 4px;"></canvas>
+                            </div>
+                            <div>
+                                <p style="font-weight: bold; margin-bottom: 5px;">生成的指纹哈希：</p>
+                                <div id="canvas-hash" style="font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">
+                                    计算中...
+                                </div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                            <strong>原理：</strong>不同设备渲染相同文字和图形会产生微小差异，转换为哈希后可作为唯一设备ID
+                        </p>
+                    </div>
+                    
+                    <!-- WebGL 指纹 -->
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h3 style="color: #667eea; margin-bottom: 10px;">🎮 WebGL 指纹</h3>
+                        <div id="webgl-fingerprint" style="font-family: monospace; font-size: 13px; background: #f8f9fa; padding: 15px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                            检测中...
+                        </div>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                            <strong>原理：</strong>读取 GPU 型号、驱动版本、支持的扩展等信息，组合成唯一标识
+                        </p>
+                    </div>
+                    
+                    <!-- 风险提示 -->
+                    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px;">
+                        <strong>⚠️ 隐私风险：</strong><br>
+                        <ul style="margin: 10px 0 0 20px; font-size: 14px;">
+                            <li>Canvas/WebGL 指纹在您的设备上几乎是唯一的</li>
+                            <li>清除 Cookie、更换浏览器都无法改变指纹</li>
+                            <li>网站可以通过指纹跨站追踪您的行为</li>
+                            <li>只有更换硬件或使用 Tor 浏览器才能有效防护</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 基础设备信息 -->
+                <div class="section">
+                    <h2>🎯 基础设备信息</h2>
+                    <p style="margin-bottom: 15px; color: #666;">
+                        这些是网站通常收集的基础信息（风险较低）：
                     </p>
                     <div id="fingerprint-demo" style="background: white; padding: 15px; border-radius: 8px;">
                         <p>正在检测...</p>
@@ -592,7 +642,114 @@ if ($pluginExists) {
     </div>
     
     <script>
-    // 演示设备指纹检测
+    // ===== Canvas 指纹生成 =====
+    (function() {
+        const canvas = document.getElementById('canvas-fingerprint');
+        const hashDiv = document.getElementById('canvas-hash');
+        
+        if (!canvas || !hashDiv) return;
+        
+        const ctx = canvas.getContext('2d');
+        
+        // 绘制复杂的图形和文字（模拟真实指纹收集）
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        
+        ctx.fillStyle = '#069';
+        ctx.fillText('Hello, Canvas! 😊', 2, 15);
+        
+        ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+        ctx.fillText('你好世界 123', 4, 17);
+        
+        // 转换为数据URL
+        const dataURL = canvas.toDataURL();
+        
+        // 简单哈希函数（实际使用 MD5 或 SHA256）
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+        
+        const hash = simpleHash(dataURL);
+        
+        hashDiv.innerHTML = `
+            <strong>唯一指纹ID：</strong><br>
+            <span style="color: #dc3545; font-size: 16px;">${hash}</span><br><br>
+            <strong>数据大小：</strong>${(dataURL.length / 1024).toFixed(2)} KB<br>
+            <strong>格式：</strong>PNG Base64<br><br>
+            <span style="color: #666; font-size: 11px;">
+                这个哈希值在你的设备上几乎是唯一的！<br>
+                不同的显卡、驱动、操作系统会产生不同的值
+            </span>
+        `;
+    })();
+    
+    // ===== WebGL 指纹生成 =====
+    (function() {
+        const webglDiv = document.getElementById('webgl-fingerprint');
+        if (!webglDiv) return;
+        
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        
+        if (!gl) {
+            webglDiv.innerHTML = '<span style="color: #dc3545;">❌ 您的浏览器不支持 WebGL</span>';
+            return;
+        }
+        
+        // 收集 WebGL 信息
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        
+        const webglData = {
+            'GPU 厂商': debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+            'GPU 渲染器': debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+            'WebGL 版本': gl.getParameter(gl.VERSION),
+            '着色器版本': gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+            '最大纹理尺寸': gl.getParameter(gl.MAX_TEXTURE_SIZE),
+            '最大视口尺寸': gl.getParameter(gl.MAX_VIEWPORT_DIMS).join(' × '),
+            '最大渲染缓冲': gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+            '最大顶点属性': gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+            '最大顶点统一向量': gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS),
+            '最大片段统一向量': gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
+            '最大纹理单元': gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
+        };
+        
+        // 获取支持的扩展
+        const extensions = gl.getSupportedExtensions();
+        
+        // 生成 HTML
+        let html = '<div style="margin-bottom: 15px;">';
+        html += '<strong style="color: #dc3545; font-size: 14px;">🔴 高风险信息（可精准识别设备）：</strong><br><br>';
+        
+        for (let key in webglData) {
+            html += `<div style="margin-bottom: 8px;">
+                <strong>${key}:</strong> 
+                <span style="color: #dc3545;">${webglData[key]}</span>
+            </div>`;
+        }
+        
+        html += '</div>';
+        
+        html += '<div style="border-top: 1px solid #ddd; padding-top: 15px;">';
+        html += `<strong>支持的扩展 (${extensions.length} 个):</strong><br><br>`;
+        html += '<div style="max-height: 150px; overflow-y: auto; font-size: 11px; line-height: 1.8;">';
+        extensions.forEach(ext => {
+            const isHighRisk = ext.includes('debug') || ext.includes('renderer');
+            html += `<span style="display: inline-block; margin: 2px; padding: 2px 8px; background: ${isHighRisk ? '#f8d7da' : '#e9ecef'}; border-radius: 12px; ${isHighRisk ? 'color: #721c24;' : 'color: #666;'}">${ext}</span>`;
+        });
+        html += '</div></div>';
+        
+        webglDiv.innerHTML = html;
+    })();
+    
+    // ===== 基础设备信息 =====
     (function() {
         const demo = document.getElementById('fingerprint-demo');
         if (!demo) return;
