@@ -17,9 +17,8 @@ if (!file_exists($zbpPath)) {
     die('❌ 错误：未找到 Z-BlogPHP 系统文件，请确认文件路径是否正确。');
 }
 
-// 加载 Z-BlogPHP
+// 加载 Z-BlogPHP（c_system_base.php 会自动加载所有依赖）
 require $zbpPath;
-require ZBP_PATH . 'zb_system/function/c_system_common.php';
 
 // 初始化
 $zbp = new ZBlogPHP();
