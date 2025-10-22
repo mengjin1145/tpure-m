@@ -81,12 +81,28 @@ class TpureHttpCache {
             return;
         }
         
-        // 🆕 系统路径不缓存（/zb_system/、/zb_users/plugin/）
+        // 🆕 系统路径不缓存（/zb_system/）
         $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($requestUri, '/zb_system/') !== false || 
-            strpos($requestUri, '/zb_users/plugin/') !== false) {
+        if (strpos($requestUri, '/zb_system/') !== false) {
             self::setNoCache();
             return;
+        }
+        
+        // 🆕 插件动态文件不缓存（API、跟踪脚本等）
+        $noCachePatterns = array(
+            '/zb_users/plugin/AdvancedStats/track.js',
+            '/zb_users/plugin/AdvancedStats/track_api.php',
+            '/zb_users/plugin/AdvancedStats/get_fingerprint_data.php',
+            '/zb_users/plugin/AdvancedStats/stay_time.php',
+            '/api.php',
+            '/cmd.php',
+        );
+        
+        foreach ($noCachePatterns as $pattern) {
+            if (strpos($requestUri, $pattern) !== false) {
+                self::setNoCache();
+                return;
+            }
         }
         
         // 自动检测内容类型和缓存时间
