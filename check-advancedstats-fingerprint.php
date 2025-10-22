@@ -21,6 +21,16 @@ require $zbpPath;
 $zbp = new ZBlogPHP();
 $zbp->Load();
 
+// 确保数据库连接已初始化
+if (!isset($zbp->db) || !is_object($zbp->db)) {
+    // 尝试手动初始化数据库连接
+    try {
+        $zbp->OpenConnect();
+    } catch (Exception $e) {
+        // 数据库连接失败时忽略，继续其他检测
+    }
+}
+
 header('Content-Type: text/html; charset=utf-8');
 
 // 检查插件是否存在
@@ -356,29 +366,38 @@ if ($pluginExists) {
                     }
                     
                     // 检查数据库表
+                    $dbTables = array();
                     try {
-                        $tables = $zbp->db->Query("SHOW TABLES LIKE '%advanced%'");
-                        $dbTables = array();
-                        foreach ($tables as $table) {
-                            $tableName = reset($table);
-                            $dbTables[] = $tableName;
+                        // 安全检查：确保数据库连接已初始化
+                        if (isset($zbp->db) && is_object($zbp->db)) {
+                            $tables = $zbp->db->Query("SHOW TABLES LIKE '%advanced%'");
                             
-                            // 获取表结构
-                            $columns = $zbp->db->Query("SHOW COLUMNS FROM `{$tableName}`");
-                            foreach ($columns as $col) {
-                                $colName = $col['Field'];
-                                foreach ($dbPatterns as $pattern => $name) {
-                                    if (stripos($colName, $pattern) !== false) {
-                                        $actualCollection[$name] = array(
-                                            'field' => $colName,
-                                            'table' => $tableName,
-                                            'type' => $col['Type']
-                                        );
+                            if ($tables && is_array($tables)) {
+                                foreach ($tables as $table) {
+                                    $tableName = reset($table);
+                                    $dbTables[] = $tableName;
+                                    
+                                    // 获取表结构
+                                    $columns = $zbp->db->Query("SHOW COLUMNS FROM `{$tableName}`");
+                                    if ($columns && is_array($columns)) {
+                                        foreach ($columns as $col) {
+                                            $colName = $col['Field'];
+                                            foreach ($dbPatterns as $pattern => $name) {
+                                                if (stripos($colName, $pattern) !== false) {
+                                                    $actualCollection[$name] = array(
+                                                        'field' => $colName,
+                                                        'table' => $tableName,
+                                                        'type' => $col['Type']
+                                                    );
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     } catch (Exception $e) {
+                        // 静默失败，不影响其他检测
                         $dbTables = array();
                     }
                     ?>
