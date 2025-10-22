@@ -296,13 +296,175 @@ if ($pluginExists) {
                     </div>
                 </div>
                 
+                <!-- 实际检测 -->
+                <div class="section">
+                    <h2>🔍 实际指纹收集检测</h2>
+                    
+                    <?php
+                    // 检查插件的实际配置和功能
+                    $includeFile = $pluginDir . 'include.php';
+                    $functionFile = $pluginDir . 'function.php';
+                    $mainFile = $pluginDir . 'main.php';
+                    
+                    $actualCollection = array();
+                    
+                    // 检查是否有这些文件
+                    $pluginFiles = array();
+                    if (file_exists($includeFile)) {
+                        $pluginFiles['include.php'] = file_get_contents($includeFile);
+                    }
+                    if (file_exists($functionFile)) {
+                        $pluginFiles['function.php'] = file_get_contents($functionFile);
+                    }
+                    if (file_exists($mainFile)) {
+                        $pluginFiles['main.php'] = file_get_contents($mainFile);
+                    }
+                    
+                    // 检测数据库记录内容
+                    $dbPatterns = array(
+                        'user_agent' => 'User-Agent（浏览器标识）',
+                        'device_type' => '设备类型',
+                        'screen_width' => '屏幕宽度',
+                        'screen_height' => '屏幕高度',
+                        'browser_name' => '浏览器名称',
+                        'browser_version' => '浏览器版本',
+                        'os_name' => '操作系统名称',
+                        'os_version' => '操作系统版本',
+                        'device_model' => '设备型号',
+                        'ip_address' => 'IP地址',
+                        'fingerprint' => '设备指纹ID',
+                        'canvas' => 'Canvas指纹',
+                        'webgl' => 'WebGL指纹',
+                        'timezone' => '时区',
+                        'language' => '语言',
+                        'plugins' => '浏览器插件',
+                        'cpu_cores' => 'CPU核心数',
+                        'memory' => '设备内存',
+                        'touch_support' => '触摸支持',
+                        'pixel_ratio' => '设备像素比',
+                    );
+                    
+                    foreach ($pluginFiles as $fileName => $content) {
+                        foreach ($dbPatterns as $pattern => $name) {
+                            if (stripos($content, $pattern) !== false) {
+                                $actualCollection[$name] = array(
+                                    'field' => $pattern,
+                                    'file' => $fileName
+                                );
+                            }
+                        }
+                    }
+                    
+                    // 检查数据库表
+                    try {
+                        $tables = $zbp->db->Query("SHOW TABLES LIKE '%advanced%'");
+                        $dbTables = array();
+                        foreach ($tables as $table) {
+                            $tableName = reset($table);
+                            $dbTables[] = $tableName;
+                            
+                            // 获取表结构
+                            $columns = $zbp->db->Query("SHOW COLUMNS FROM `{$tableName}`");
+                            foreach ($columns as $col) {
+                                $colName = $col['Field'];
+                                foreach ($dbPatterns as $pattern => $name) {
+                                    if (stripos($colName, $pattern) !== false) {
+                                        $actualCollection[$name] = array(
+                                            'field' => $colName,
+                                            'table' => $tableName,
+                                            'type' => $col['Type']
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception $e) {
+                        $dbTables = array();
+                    }
+                    ?>
+                    
+                    <?php if (empty($actualCollection)): ?>
+                        <div class="status warning">
+                            ⚠️ <strong>未检测到数据库字段收集</strong> - 可能使用其他方式存储或未启用
+                        </div>
+                    <?php else: ?>
+                        <div class="status error">
+                            🔴 <strong>检测到 <?php echo count($actualCollection); ?> 项数据收集</strong>
+                        </div>
+                        
+                        <table style="margin-top: 15px;">
+                            <thead>
+                                <tr>
+                                    <th>收集项</th>
+                                    <th>数据库字段/变量</th>
+                                    <th>来源</th>
+                                    <th>风险</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($actualCollection as $name => $info): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($name); ?></strong></td>
+                                    <td style="font-family: monospace; font-size: 12px;">
+                                        <?php echo htmlspecialchars($info['field']); ?>
+                                        <?php if (isset($info['type'])): ?>
+                                        <br><span style="color: #999;">(<?php echo $info['type']; ?>)</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (isset($info['table'])): ?>
+                                            表: <?php echo htmlspecialchars($info['table']); ?>
+                                        <?php elseif (isset($info['file'])): ?>
+                                            文件: <?php echo htmlspecialchars($info['file']); ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $risk = 'low';
+                                        $highRisk = array('Canvas指纹', 'WebGL指纹', '设备指纹ID');
+                                        $mediumRisk = array('浏览器插件', 'CPU核心数', '设备内存', '设备型号');
+                                        
+                                        if (in_array($name, $highRisk)) {
+                                            $risk = 'high';
+                                        } elseif (in_array($name, $mediumRisk)) {
+                                            $risk = 'medium';
+                                        }
+                                        ?>
+                                        <span class="risk-level risk-<?php echo $risk; ?>">
+                                            <?php echo $risk === 'high' ? '高' : ($risk === 'medium' ? '中' : '低'); ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($dbTables)): ?>
+                        <div style="margin-top: 20px;">
+                            <h3 style="margin-bottom: 10px;">📊 数据库表</h3>
+                            <div class="fingerprint-pattern">
+                                <?php foreach ($dbTables as $table): ?>
+                                    <div>✓ <?php echo htmlspecialchars($table); ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                
                 <!-- 收集的指纹信息 -->
                 <div class="section">
-                    <h2>📊 检测到的设备指纹信息</h2>
+                    <h2>📊 JavaScript 代码检测</h2>
                     
                     <?php if (empty($fingerprints)): ?>
                         <div class="status success">
-                            ✅ <strong>未检测到明显的指纹收集代码</strong>
+                            ✅ <strong>未在 JS 文件中检测到明显的指纹收集代码</strong>
+                            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                                这可能意味着：<br>
+                                1. 插件未使用 JavaScript 收集设备信息<br>
+                                2. 使用了混淆或加密的代码<br>
+                                3. 通过服务器端 PHP 收集数据（更隐蔽）
+                            </p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($fingerprints as $name => $info): ?>
@@ -416,6 +578,35 @@ if ($pluginExists) {
         const demo = document.getElementById('fingerprint-demo');
         if (!demo) return;
         
+        // 正确检测浏览器
+        function getBrowserName() {
+            const ua = navigator.userAgent;
+            
+            // 按照优先级检测（Chrome 必须在 Safari 之前检测）
+            if (ua.indexOf('Edg') > -1) return 'Edge';
+            if (ua.indexOf('OPR') > -1 || ua.indexOf('Opera') > -1) return 'Opera';
+            if (ua.indexOf('Chrome') > -1) return 'Chrome';  // Chrome 在 Safari 之前
+            if (ua.indexOf('Safari') > -1) return 'Safari';
+            if (ua.indexOf('Firefox') > -1) return 'Firefox';
+            if (ua.indexOf('MSIE') > -1 || ua.indexOf('Trident/') > -1) return 'IE';
+            
+            return '未知浏览器';
+        }
+        
+        // 检测操作系统
+        function getOSName() {
+            const ua = navigator.userAgent;
+            const platform = navigator.platform;
+            
+            if (ua.indexOf('Win') > -1) return 'Windows';
+            if (ua.indexOf('Mac') > -1) return 'macOS';
+            if (ua.indexOf('Linux') > -1) return 'Linux';
+            if (ua.indexOf('Android') > -1) return 'Android';
+            if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) return 'iOS';
+            
+            return platform || '未知';
+        }
+        
         const info = {
             '设备类型': /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? '移动设备' : '桌面设备',
             '屏幕分辨率': `${screen.width} × ${screen.height}`,
@@ -425,9 +616,9 @@ if ($pluginExists) {
             '触摸支持': navigator.maxTouchPoints > 0 ? '是 (' + navigator.maxTouchPoints + ' 点)' : '否',
             'CPU 核心': navigator.hardwareConcurrency || '未知',
             '浏览器语言': navigator.language,
-            '操作系统': navigator.platform,
-            '浏览器': navigator.userAgent.split(' ').pop().split('/')[0],
-            '时区偏移': new Date().getTimezoneOffset() / 60 + ' 小时'
+            '操作系统': getOSName(),
+            '浏览器': getBrowserName(),
+            '时区偏移': (new Date().getTimezoneOffset() / -60) + ' (UTC' + (new Date().getTimezoneOffset() / -60 >= 0 ? '+' : '') + (new Date().getTimezoneOffset() / -60) + ')'
         };
         
         let html = '<table style="width: 100%; border-collapse: collapse;">';
