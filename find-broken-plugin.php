@@ -240,7 +240,18 @@ header('Content-Type: text/html; charset=utf-8');
                     continue;
                 }
                 
-                $xmlPath = $pluginDir . $dir . '/plugin.xml';
+                // 跳过文件（只处理目录）
+                $fullPath = $pluginDir . $dir;
+                if (!is_dir($fullPath)) {
+                    continue;
+                }
+                
+                // 跳过压缩包（.tar.gz, .zip 等）
+                if (preg_match('/\.(tar\.gz|zip|rar|7z)$/i', $dir)) {
+                    continue;
+                }
+                
+                $xmlPath = $fullPath . '/plugin.xml';
                 
                 if (!file_exists($xmlPath)) {
                     continue;
