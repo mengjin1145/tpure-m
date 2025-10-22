@@ -1,179 +1,401 @@
 <?php
 /**
- * 查找损坏的插件XML文件
+ * Tpure 主题 - 查找损坏的插件 XML
+ * 
+ * 功能：扫描所有插件的 plugin.xml，找出格式错误的文件
+ * 
+ * 使用方法：
+ * 1. 上传到主题目录：zb_users/theme/tpure/
+ * 2. 访问：https://你的域名/zb_users/theme/tpure/find-broken-plugin.php
+ * 3. 查看结果，禁用或修复损坏的插件
  */
 
-header('Content-Type: text/html; charset=utf-8');
+// 检测是否已安装 Z-BlogPHP
+$zbpPath = dirname(dirname(dirname(dirname(__FILE__)))) . '/zb_system/function/c_system_base.php';
 
-require '../../../zb_system/function/c_system_base.php';
+if (!file_exists($zbpPath)) {
+    die('❌ 错误：未找到 Z-BlogPHP 系统文件，请确认文件路径是否正确。');
+}
+
+// 加载 Z-BlogPHP
+require $zbpPath;
+require ZBP_PATH . 'zb_system/function/c_system_common.php';
+
+// 初始化
+$zbp = new ZBlogPHP();
 $zbp->Load();
 
-echo '<!DOCTYPE html>
+header('Content-Type: text/html; charset=utf-8');
+?>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>查找损坏的插件</title>
+    <title>🔍 Tpure - 查找损坏的插件</title>
     <style>
-        body { font-family: Arial; max-width: 1200px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
-        h1 { color: #0188fb; border-bottom: 3px solid #0188fb; padding-bottom: 10px; }
-        .result { background: #fff; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .error { background: #f8d7da; color: #721c24; padding: 15px; margin: 10px 0; border-left: 4px solid #dc3545; }
-        .success { background: #d4edda; color: #155724; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745; }
-        .warning { background: #fff3cd; color: #856404; padding: 15px; margin: 10px 0; border-left: 4px solid #ffc107; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f8f9fa; font-weight: bold; }
-        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-        .btn { display: inline-block; padding: 10px 20px; background: #0188fb; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
-        .btn:hover { background: #0166c7; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .plugin-card {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        .plugin-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .plugin-card.broken {
+            border-color: #dc3545;
+            background: #fff5f5;
+        }
+        .plugin-card.ok {
+            border-color: #28a745;
+            background: #f8fff8;
+        }
+        .plugin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .plugin-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .plugin-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .plugin-status.ok {
+            background: #28a745;
+            color: white;
+        }
+        .plugin-status.broken {
+            background: #dc3545;
+            color: white;
+        }
+        .plugin-info {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .plugin-path {
+            color: #999;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+            word-break: break-all;
+        }
+        .error-detail {
+            background: #fff;
+            border-left: 4px solid #dc3545;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #721c24;
+        }
+        .fix-button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        .fix-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary-card h3 {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .summary-card p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .progress {
+            background: #e9ecef;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
-    <h1>🔍 查找损坏的插件XML文件</h1>
-';
-
-$pluginDir = $zbp->usersdir . 'plugin/';
-$brokenPlugins = array();
-$validPlugins = array();
-
-// 扫描所有插件
-$plugins = glob($pluginDir . '*/plugin.xml');
-
-echo '<div class="result">';
-echo '<h2>正在检查 ' . count($plugins) . ' 个插件...</h2>';
-
-foreach ($plugins as $xmlFile) {
-    $pluginName = basename(dirname($xmlFile));
-    
-    // 读取XML文件
-    $xmlContent = @file_get_contents($xmlFile);
-    
-    if ($xmlContent === false) {
-        $brokenPlugins[] = array(
-            'name' => $pluginName,
-            'file' => $xmlFile,
-            'error' => '无法读取文件'
-        );
-        continue;
-    }
-    
-    // 尝试解析XML
-    libxml_use_internal_errors(true);
-    $xml = @simplexml_load_string($xmlContent);
-    
-    if ($xml === false) {
-        $errors = libxml_get_errors();
-        $errorMsg = array();
-        foreach ($errors as $error) {
-            $errorMsg[] = "行 {$error->line}: {$error->message}";
-        }
-        libxml_clear_errors();
+    <div class="container">
+        <div class="header">
+            <h1>🔍 查找损坏的插件 XML</h1>
+            <p>扫描所有插件的 plugin.xml 文件，找出格式错误的文件</p>
+        </div>
         
-        $brokenPlugins[] = array(
-            'name' => $pluginName,
-            'file' => $xmlFile,
-            'error' => implode('<br>', $errorMsg)
-        );
-    } else {
-        $validPlugins[] = array(
-            'name' => $pluginName,
-            'file' => $xmlFile
-        );
-    }
-}
-
-echo '</div>';
-
-// 显示损坏的插件
-if (count($brokenPlugins) > 0) {
-    echo '<div class="result">';
-    echo '<h2>❌ 发现 ' . count($brokenPlugins) . ' 个损坏的插件</h2>';
-    echo '<table>';
-    echo '<tr><th>插件名称</th><th>XML文件</th><th>错误信息</th><th>操作</th></tr>';
-    
-    foreach ($brokenPlugins as $plugin) {
-        echo '<tr>';
-        echo '<td><strong>' . htmlspecialchars($plugin['name']) . '</strong></td>';
-        echo '<td><code>' . htmlspecialchars($plugin['file']) . '</code></td>';
-        echo '<td class="error">' . $plugin['error'] . '</td>';
-        echo '<td><a href="?fix=' . urlencode($plugin['name']) . '" class="btn" onclick="return confirm(\'确定要尝试修复吗？\')">尝试修复</a></td>';
-        echo '</tr>';
-    }
-    
-    echo '</table>';
-    echo '</div>';
-    
-    echo '<div class="warning">';
-    echo '<strong>⚠️ 建议操作：</strong><br>';
-    echo '1. 备份插件目录：<code>/zb_users/plugin/</code><br>';
-    echo '2. 禁用或删除损坏的插件<br>';
-    echo '3. 重新安装该插件<br>';
-    echo '4. 或者联系插件作者修复XML文件';
-    echo '</div>';
-} else {
-    echo '<div class="success">';
-    echo '<h2>✅ 所有插件XML文件正常</h2>';
-    echo '<p>检查完成，未发现损坏的插件。</p>';
-    echo '</div>';
-}
-
-// 显示正常的插件
-echo '<div class="result">';
-echo '<h2>✅ 正常的插件（' . count($validPlugins) . ' 个）</h2>';
-echo '<table>';
-echo '<tr><th>插件名称</th><th>XML文件</th></tr>';
-
-foreach ($validPlugins as $plugin) {
-    echo '<tr>';
-    echo '<td>' . htmlspecialchars($plugin['name']) . '</td>';
-    echo '<td><code>' . htmlspecialchars($plugin['file']) . '</code></td>';
-    echo '</tr>';
-}
-
-echo '</table>';
-echo '</div>';
-
-// 处理修复请求
-if (isset($_GET['fix'])) {
-    $fixPlugin = $_GET['fix'];
-    $xmlFile = $pluginDir . $fixPlugin . '/plugin.xml';
-    
-    if (file_exists($xmlFile)) {
-        echo '<div class="result">';
-        echo '<h2>🔧 尝试修复：' . htmlspecialchars($fixPlugin) . '</h2>';
+        <div class="content">
+            <?php
+            $pluginDir = ZBP_PATH . 'zb_users/plugin/';
+            
+            if (!is_dir($pluginDir)) {
+                echo '<div class="status error">❌ 错误：插件目录不存在：' . $pluginDir . '</div>';
+                exit;
+            }
+            
+            // 扫描所有插件
+            $plugins = array();
+            $brokenPlugins = array();
+            $okPlugins = array();
+            
+            $dirs = scandir($pluginDir);
+            foreach ($dirs as $dir) {
+                if ($dir === '.' || $dir === '..') {
+                    continue;
+                }
+                
+                $xmlPath = $pluginDir . $dir . '/plugin.xml';
+                
+                if (!file_exists($xmlPath)) {
+                    continue;
+                }
+                
+                $pluginInfo = array(
+                    'dir' => $dir,
+                    'path' => $xmlPath,
+                    'size' => filesize($xmlPath),
+                    'ok' => false,
+                    'error' => ''
+                );
+                
+                // 尝试解析 XML
+                libxml_use_internal_errors(true);
+                $xmlContent = file_get_contents($xmlPath);
+                $xml = simplexml_load_string($xmlContent);
+                
+                if ($xml === false) {
+                    $pluginInfo['ok'] = false;
+                    $errors = libxml_get_errors();
+                    $errorMessages = array();
+                    foreach ($errors as $error) {
+                        $errorMessages[] = "Line {$error->line}: {$error->message}";
+                    }
+                    $pluginInfo['error'] = implode("\n", $errorMessages);
+                    libxml_clear_errors();
+                    $brokenPlugins[] = $pluginInfo;
+                } else {
+                    $pluginInfo['ok'] = true;
+                    $pluginInfo['name'] = (string)$xml->name;
+                    $pluginInfo['version'] = (string)$xml->version;
+                    $pluginInfo['author'] = (string)$xml->author->name;
+                    $okPlugins[] = $pluginInfo;
+                }
+                
+                $plugins[] = $pluginInfo;
+            }
+            
+            $totalPlugins = count($plugins);
+            $brokenCount = count($brokenPlugins);
+            $okCount = count($okPlugins);
+            ?>
+            
+            <!-- 统计概览 -->
+            <div class="summary">
+                <div class="summary-card">
+                    <h3><?php echo $totalPlugins; ?></h3>
+                    <p>总插件数</p>
+                </div>
+                <div class="summary-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                    <h3><?php echo $okCount; ?></h3>
+                    <p>正常插件</p>
+                </div>
+                <div class="summary-card" style="background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);">
+                    <h3><?php echo $brokenCount; ?></h3>
+                    <p>损坏插件</p>
+                </div>
+            </div>
+            
+            <!-- 进度条 -->
+            <div class="progress">
+                <div class="progress-bar" style="width: <?php echo $totalPlugins > 0 ? ($okCount / $totalPlugins * 100) : 0; ?>%;"></div>
+            </div>
+            
+            <?php if ($brokenCount > 0): ?>
+                <div class="status error">
+                    ❌ <strong>发现 <?php echo $brokenCount; ?> 个损坏的插件！</strong> 请禁用或修复它们。
+                </div>
+                
+                <h2 style="margin: 30px 0 15px 0; color: #dc3545;">🔴 损坏的插件</h2>
+                
+                <?php foreach ($brokenPlugins as $plugin): ?>
+                <div class="plugin-card broken">
+                    <div class="plugin-header">
+                        <div class="plugin-name">📦 <?php echo htmlspecialchars($plugin['dir']); ?></div>
+                        <span class="plugin-status broken">XML 错误</span>
+                    </div>
+                    
+                    <div class="plugin-info">
+                        📂 目录：<?php echo htmlspecialchars($plugin['dir']); ?>
+                    </div>
+                    
+                    <div class="plugin-info">
+                        📄 文件大小：<?php echo number_format($plugin['size']); ?> bytes
+                    </div>
+                    
+                    <div class="plugin-path">
+                        <?php echo htmlspecialchars($plugin['path']); ?>
+                    </div>
+                    
+                    <div class="error-detail">
+                        <strong>错误详情：</strong><br>
+                        <?php echo nl2br(htmlspecialchars($plugin['error'])); ?>
+                    </div>
+                    
+                    <a href="<?php echo $zbp->host; ?>zb_system/admin/index.php?act=PluginMng" class="fix-button" target="_blank">
+                        🔧 去插件管理禁用
+                    </a>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="status success">
+                    ✅ <strong>太好了！所有插件 XML 格式都正常。</strong>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($okCount > 0): ?>
+                <h2 style="margin: 30px 0 15px 0; color: #28a745;">✅ 正常的插件</h2>
+                
+                <?php foreach ($okPlugins as $plugin): ?>
+                <div class="plugin-card ok">
+                    <div class="plugin-header">
+                        <div class="plugin-name">📦 <?php echo htmlspecialchars($plugin['name'] ?? $plugin['dir']); ?></div>
+                        <span class="plugin-status ok">正常</span>
+                    </div>
+                    
+                    <div class="plugin-info">
+                        📂 目录：<?php echo htmlspecialchars($plugin['dir']); ?>
+                    </div>
+                    
+                    <?php if (!empty($plugin['version'])): ?>
+                    <div class="plugin-info">
+                        🏷️ 版本：<?php echo htmlspecialchars($plugin['version']); ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($plugin['author'])): ?>
+                    <div class="plugin-info">
+                        👤 作者：<?php echo htmlspecialchars($plugin['author']); ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="plugin-path">
+                        <?php echo htmlspecialchars($plugin['path']); ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            
+            <div class="status warning" style="margin-top: 30px;">
+                <div>
+                    <strong>💡 修复建议：</strong><br>
+                    1. 禁用损坏的插件（后台 → 插件管理 → 禁用）<br>
+                    2. 重新安装或更新插件<br>
+                    3. 联系插件作者获取修复版本<br>
+                    4. 手动编辑 plugin.xml 修复 XML 格式错误
+                </div>
+            </div>
+        </div>
         
-        $content = file_get_contents($xmlFile);
-        
-        // 常见修复
-        $fixed = false;
-        
-        // 1. 检查sidebars标签是否正确闭合
-        if (strpos($content, '<sidebars>') !== false && strpos($content, '</sidebars>') === false) {
-            $content = str_replace('</plugin>', '</sidebars></plugin>', $content);
-            $fixed = true;
-            echo '<p>✅ 修复：添加缺失的 &lt;/sidebars&gt; 标签</p>';
-        }
-        
-        // 2. 检查其他未闭合标签
-        preg_match_all('/<(\w+)[^>]*>/', $content, $openTags);
-        preg_match_all('/<\/(\w+)>/', $content, $closeTags);
-        
-        if ($fixed) {
-            file_put_contents($xmlFile, $content);
-            echo '<div class="success">修复成功！请刷新页面重新检查。</div>';
-        } else {
-            echo '<div class="warning">无法自动修复，请手动编辑XML文件。</div>';
-        }
-        
-        echo '</div>';
-    }
-}
-
-echo '<p style="text-align: center; margin-top: 40px; color: #6c757d;">
-    <a href="?" class="btn">🔄 重新检查</a>
-    <a href="../../../zb_system/cmd.php?act=PluginMng" class="btn">返回插件管理</a>
-</p>';
-
-echo '</body></html>';
-?>
-
+        <div class="footer">
+            🛠️ Tpure 主题诊断工具 | 生成时间：<?php echo date('Y-m-d H:i:s'); ?>
+        </div>
+    </div>
+</body>
+</html>
